@@ -1,0 +1,36 @@
+{
+  "logs_dir": "bitaxe_logs",
+  "keep_days": 30,
+  "poll_interval_s": 5,
+  "timeout_s": 5,
+  "window_n": 12,
+  "apply_every_n": 12,
+  "devices": [
+    {
+      "name": "bitaxe-1",
+      "ip": "192.168.1.101"
+    },
+    {
+      "name": "bitaxe-2",
+      "ip": "192.168.1.102"
+    }
+  ],
+  "engine": {
+    "freq_min": 400,
+    "freq_max": 1100,
+    "vcore_min": 1000,
+    "vcore_max": 1400,
+    "freq_step": 25,
+    "vcore_step": 10,
+    "window_n_min_valid": 8,
+    "asic_soft": 65.0,
+    "asic_hard": 68.0,
+    "vr_soft": 78.0,
+    "vr_hard": 82.0,
+    "err_low": 0.6,
+    "err_high": 1.0,
+    "err_crit": 1.3,
+    "slope_limit": 0.01,
+    "allow_ramp_up": false
+  }
+}
