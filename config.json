@@ -1,13 +1,41 @@
 {
+  // Root directory where all logs are stored
+  // Each Bitaxe will have its own subfolder inside this directory
   "logs_dir": "bitaxe_logs",
+
+  // Number of days logs are kept on disk
+  // Older files are automatically deleted
+  // This has no impact on the autotune logic itself
   "keep_days": 30,
-  "poll_interval_s": 5,
+
+  // Interval between two metric pulls from AxeOS (HTTP GET)
+  // Too low values may overload the ESP32 and cause timeouts
+  // Recommended: 10s or more
+  "poll_interval_s": 10,
+
+  // HTTP timeout for a single request to the Bitaxe
+  // If exceeded, the poll is considered failed and logged as NA
   "timeout_s": 5,
+
+  // Size of the FIFO window used for moving averages
+  // Used for temperatures, error rate, and slope calculation
+  // Example: 12 samples @10s = 2 minutes of history
   "window_n": 12,
+
+  // Number of polls between two tuning decisions
+  // Decision = change frequency/voltage OR explicitly do nothing
+  // Example: poll=10s, apply_every_n=12 → decision every 2 minutes
   "apply_every_n": 12,
+
+  // List of Bitaxe devices managed by this instance
+  // No auto-discovery: devices are explicitly declared
   "devices": [
     {
+      // Human-readable name
+      // Used for log folders, monitoring, and future dashboards
       "name": "bitaxe-1",
+
+      // IP address of the Bitaxe AxeOS web interface
       "ip": "192.168.1.101"
     },
     {
@@ -15,22 +43,73 @@
       "ip": "192.168.1.102"
     }
   ],
+
+  // Autotune engine configuration
   "engine": {
+
+    // Minimum allowed ASIC frequency (MHz)
+    // Below this value, no further downscale is allowed
     "freq_min": 400,
+
+    // Maximum allowed ASIC frequency (MHz)
+    // Must be compatible with PSU capacity and cooling
     "freq_max": 1100,
-    "vcore_min": 1000,
-    "vcore_max": 1400,
+
+    // Frequency adjustment step (MHz)
+    // Smaller steps = smoother but slower reactions
     "freq_step": 25,
+
+    // Minimum allowed ASIC core voltage (mV)
+    "vcore_min": 1000,
+
+    // Maximum allowed ASIC core voltage (mV)
+    // Higher voltage improves stability but increases heat
+    "vcore_max": 1400,
+
+    // Voltage adjustment step (mV)
     "vcore_step": 10,
+
+    // Minimum number of valid (non-NA) samples required
+    // in the FIFO window to allow a decision
+    // Prevents decisions based on incomplete or noisy data
     "window_n_min_valid": 8,
+
+    // ASIC temperature soft limit (°C)
+    // Above this value, the engine becomes conservative
     "asic_soft": 65.0,
+
+    // ASIC temperature hard limit (°C)
+    // Above this value, an immediate downscale is triggered
     "asic_hard": 68.0,
+
+    // Voltage Regulator temperature soft limit (°C)
     "vr_soft": 78.0,
+
+    // Voltage Regulator temperature hard limit (°C)
+    // VR overheating is often more critical than ASIC itself
     "vr_hard": 82.0,
+
+    // Error rate thresholds (percentage of invalid shares)
+    // Values are computed on the FIFO average, NOT instant values
+
+    // Low error rate: stable operating zone
     "err_low": 0.6,
+
+    // High error rate: warning zone, may trigger downscale
     "err_high": 1.0,
+
+    // Critical error rate: aggressive corrective action
     "err_crit": 1.3,
+
+    // Maximum allowed temperature slope (°C per second)
+    // Computed using linear regression over the FIFO window
+    // Applied to both ASIC and VR temperatures
+    // Detects thermal runaway independently of ambient temperature
     "slope_limit": 0.01,
+
+    // Allows the engine to increase frequency/voltage autonomously
+    // false = protection-only mode (recommended for V1)
+    // true  = full optimization mode (V2+)
     "allow_ramp_up": false
   }
 }
