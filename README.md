@@ -18,11 +18,11 @@ Continuously capture miner metrics without interpretation or bias.
 ### 2. Backtesting
 Analyze historical logs offline to objectively compare configurations.
 
-### 3. Manual optimization
-No blind auto-tuning. You decide what matters: stability, temperature, error rate, noise, or hashrate.
+### 3. Controlled live optimization
+Apply **simple, explainable, and reversible decisions** in real time, based on observed trends rather than instantaneous noise.
 
 This tool does not magically optimize your miner.  
-It provides facts so you can optimize intelligently.
+It applies **transparent rules** so you always understand *why* a decision is made.
 
 ---
 
@@ -37,16 +37,13 @@ In real-world conditions, miner behavior is strongly affected by:
 - garage vs indoor placement
 - airflow changes
 
-A configuration that is perfectly stable at night or in winter may become:
-- unstable during the day
-- error-prone in summer
-- thermally saturated after several hours
+A configuration that is stable in winter or at night may become unstable during summer afternoons.
 
 BitaxeLiveOptimizer allows you to:
-- **observe how your miner reacts to ambient temperature drift**
-- **compare logs across different conditions**
-- **adjust frequency, voltage, or cooling strategy accordingly**
-- **build configurations that remain stable across time, not just in ideal conditions**
+- observe how your miner reacts to ambient temperature drift
+- detect slow thermal saturation
+- adapt settings progressively instead of reacting too late
+- maintain stability across time, not just in ideal conditions
 
 The goal is not peak hashrate.  
 The goal is **consistent, boring, reliable performance**.
@@ -61,7 +58,7 @@ The goal is **consistent, boring, reliable performance**.
 - Associates each miner with a human-readable name
 - Separates responsibilities across multiple Python modules
 - Produces structured logs suitable for offline backtesting
-- Makes firmware smoothing effects visible (error rate, averaged stats, etc.)
+- Applies simple live optimization decisions based on trends
 
 ---
 
@@ -83,10 +80,11 @@ Supported platforms:
 ```
 BitaxeLiveOptimizer/
 ├── main.py              # Entry point, orchestration
-├── control.py           # Core control loop and miner coordination
+├── control.py           # Live decision loop and miner coordination
 ├── miner.py             # Miner representation (name, IP, state)
 ├── api.py               # Bitaxe API communication layer
 ├── parser.py            # Raw API data parsing and normalization
+├── optimizer.py         # Live optimization decision logic
 ├── logger.py            # CSV logging utilities
 ├── backtest.py          # Offline log analysis (optional)
 ├── requirements.txt
@@ -96,189 +94,144 @@ BitaxeLiveOptimizer/
 
 ---
 
-## Installation
+## Live Optimization Logic (Core Concept)
 
-Clone the repository:
+### Key Idea
 
-```bash
-git clone https://github.com/<your-user>/BitaxeLiveOptimizer.git
-cd BitaxeLiveOptimizer
-```
+**BitaxeLiveOptimizer does not react to single measurements.**  
+It reacts to **trends observed over time**.
 
-Install dependencies:
+All live decisions are based on:
+- rolling averages
+- sustained threshold violations
+- correlation between temperature, error rate, and hashrate
 
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Miner Definition (IP and Name)
-
-Each Bitaxe miner is defined by:
-- an **IP address or hostname**
-- a **logical, human-readable name**
-
-Using names is essential to keep logs readable and comparable.
-
-### Miner syntax
-
-```text
-<miner_name>=<ip_or_hostname>
-```
-
-Example:
-
-```text
-bitaxe_garage=192.168.1.50
-```
+This avoids oscillations and overreaction.
 
 ---
 
-## Command-Line Parameters
+## Metrics Used for Decisions
 
-### `--miner`
+Live optimization decisions typically rely on:
 
-Defines a Bitaxe miner.  
-This option can be used multiple times.
+- **Temperature**
+- **Error percentage**
+- **Hashrate stability**
+- **Fan behavior (indirectly)**
 
-```text
---miner bitaxe_garage=192.168.1.50
---miner bitaxe_lab=192.168.1.51
-```
-
----
-
-### `--interval`
-
-Polling interval in seconds.
-
-```text
---interval 10
-```
-
-Typical values:
-- `5`   → very granular, higher load
-- `10`  → recommended default
-- `30+` → long-term monitoring
+Instantaneous spikes are ignored.  
+Only sustained behavior matters.
 
 ---
 
-### `--duration`
+## Decision Strategy Overview
 
-Total logging duration in minutes.
+The optimizer follows a **priority order**:
 
-```text
---duration 6
-```
+1. **Hardware safety**
+2. **Stability**
+3. **Efficiency**
+4. **Hashrate**
 
-Notes:
-- ~6 minutes corresponds to one internal Bitaxe stats update window
-- 20–30 minutes recommended for thermal stability analysis
-
----
-
-### `--output`
-
-CSV output file path.
-
-```text
---output logs/test_run.csv
-```
-
-If omitted, a timestamped file is created automatically.
+Hashrate is *never* optimized at the expense of stability.
 
 ---
 
-## Full Example Command
+## Temperature-Based Decisions
 
-```bash
-python main.py   --miner bitaxe_garage=192.168.1.50   --miner bitaxe_lab=192.168.1.51   --interval 10   --duration 6   --output logs/oc_490mhz.csv
-```
+Temperature is treated as the **leading indicator**.
 
----
+Typical logic:
+- If temperature remains below the safe range → no action
+- If temperature slowly increases over time → prepare correction
+- If temperature exceeds threshold for a sustained period → corrective action
 
-## Logging Explained
+Corrective actions may include:
+- reducing frequency
+- reducing voltage
+- increasing cooling margin (if supported)
 
-### Why Logging Is Necessary
-
-Some Bitaxe firmware metrics (especially **error percentage**) are smoothed and updated only every ~300–360 seconds.  
-The web interface alone can therefore be misleading.
-
-Continuous logging allows you to:
-- correlate temperature with error rate
-- observe delayed instability
-- objectively compare multiple configurations
-- understand behavior changes caused by ambient temperature variation
+No immediate action is taken on short spikes.
 
 ---
 
-### Logged Data
+## Error-Rate-Based Decisions
 
-Each CSV row represents one polling cycle for one miner.
+Error rate is treated as a **secondary but critical indicator**.
 
-Typical logged fields:
-- Timestamp
-- Miner name
-- Miner IP
-- Hashrate
-- Temperature
-- Fan speed
-- Voltage (if exposed)
-- Frequency (if exposed)
-- Error percentage
-- Accepted / rejected shares (if exposed)
+Important rule:
+> Error rate increases often appear **after** thermal stress.
 
-Example CSV:
+Typical logic:
+- Monitor rolling average of error%
+- Ignore transient error spikes
+- Act only if error% remains above threshold for multiple intervals
 
-```csv
-timestamp,miner,ip,hashrate,temp,error_percent,fan_rpm,voltage,freq
-2026-01-17T16:10:00,bitaxe_garage,192.168.1.50,552,63.1,0.18,4800,1.15,490
-```
+Corrective actions:
+- step down frequency
+- revert to last known stable configuration
 
 ---
 
-## Backtesting Explained
+## Hashrate Stability Checks
 
-Backtesting consists of:
-- loading previously generated CSV logs
-- analyzing them offline
-- comparing different miner configurations objectively
+Hashrate alone is not a success metric.
 
-Backtesting is especially useful to compare:
-- day vs night behavior
-- summer vs winter conditions
-- identical settings under different ambient temperatures
+The optimizer checks:
+- hashrate variance over time
+- oscillations caused by throttling or errors
+
+A slightly lower but stable hashrate is preferred over a higher unstable one.
 
 ---
 
-## Architecture Explained
+## Example Live Optimization Scenario
 
-### main.py
-- Parses command-line arguments
-- Initializes configuration
-- Starts and stops the monitoring session
+1. Morning: ambient temperature is low  
+   → miner runs stable at higher frequency
 
-### control.py
-- Implements the main polling loop
-- Coordinates all registered miners
+2. Afternoon: ambient temperature rises  
+   → temperature trend slowly increases
 
-### miner.py
-- Represents a single Bitaxe miner
-- Stores name, IP, and runtime state
+3. Error rate begins to creep up  
+   → optimizer detects sustained correlation
 
-### api.py
-- Handles HTTP communication with the Bitaxe API
-- Fetches raw JSON statistics
+4. Corrective action applied  
+   → frequency reduced slightly
 
-### parser.py
-- Converts raw API responses into normalized metrics
+5. Temperature stabilizes, error rate returns to baseline  
+   → configuration is kept
 
-### logger.py
-- Manages CSV file creation and structured writes
+This prevents sudden crashes or hardware stress.
 
-### backtest.py
-- Performs offline log analysis and comparisons
+---
+
+## Why Decisions Are Conservative
+
+BitaxeLiveOptimizer is intentionally conservative:
+
+- No aggressive step changes
+- No rapid oscillations
+- No chasing short-term gains
+
+This ensures:
+- predictability
+- reproducibility
+- hardware longevity
+
+---
+
+## Logging and Optimization Are Linked
+
+Every optimization decision:
+- is reflected in the logs
+- can be backtested later
+- can be compared against previous runs
+
+This allows you to:
+- validate decisions
+- refine thresholds
+- adapt strategy over time
 
 ---
 
@@ -314,11 +267,3 @@ Thank you for supporting open-source experimentation and data-driven mining.
 
 ---
 
-## License
-
-Choose according to your goals:
-- MIT
-- Apache-2.0
-- GPL-3.0
-
-MIT is usually the simplest option.
