@@ -26,6 +26,33 @@ It provides facts so you can optimize intelligently.
 
 ---
 
+## Why This Tool Exists (Ambient Temperature Compensation)
+
+One of the main motivations behind BitaxeLiveOptimizer is **ambient temperature variation compensation**.
+
+In real-world conditions, miner behavior is strongly affected by:
+- day vs night temperature changes
+- seasonal variations (summer / winter)
+- room heating or air conditioning
+- garage vs indoor placement
+- airflow changes
+
+A configuration that is perfectly stable at night or in winter may become:
+- unstable during the day
+- error-prone in summer
+- thermally saturated after several hours
+
+BitaxeLiveOptimizer allows you to:
+- **observe how your miner reacts to ambient temperature drift**
+- **compare logs across different conditions**
+- **adjust frequency, voltage, or cooling strategy accordingly**
+- **build configurations that remain stable across time, not just in ideal conditions**
+
+The goal is not peak hashrate.  
+The goal is **consistent, boring, reliable performance**.
+
+---
+
 ## What the Tool Does
 
 - Polls Bitaxe miner APIs at a fixed interval
@@ -66,8 +93,6 @@ BitaxeLiveOptimizer/
 ├── logs/
 └── README.txt
 ```
-
-> File names may vary slightly, but the architecture follows this separation of concerns.
 
 ---
 
@@ -184,6 +209,7 @@ Continuous logging allows you to:
 - correlate temperature with error rate
 - observe delayed instability
 - objectively compare multiple configurations
+- understand behavior changes caused by ambient temperature variation
 
 ---
 
@@ -219,23 +245,10 @@ Backtesting consists of:
 - analyzing them offline
 - comparing different miner configurations objectively
 
-Typical questions answered by backtesting:
-- Is 500 MHz actually better than 490 MHz?
-- Does increasing fan speed reduce long-term error rate?
-- How long does it take before thermal saturation occurs?
-
----
-
-### Why Backtesting Matters
-
-Short-term observations can be misleading.
-
-Backtesting reveals:
-- slow thermal drift
-- delayed error-rate increases
-- long-term instability invisible in short tests
-
-Optimization decisions should **never** be based on only a few minutes of data.
+Backtesting is especially useful to compare:
+- day vs night behavior
+- summer vs winter conditions
+- identical settings under different ambient temperatures
 
 ---
 
@@ -245,93 +258,59 @@ Optimization decisions should **never** be based on only a few minutes of data.
 - Parses command-line arguments
 - Initializes configuration
 - Starts and stops the monitoring session
-- Delegates all operational logic to other modules
 
 ### control.py
 - Implements the main polling loop
 - Coordinates all registered miners
-- Handles timing, intervals, and session duration
 
 ### miner.py
 - Represents a single Bitaxe miner
 - Stores name, IP, and runtime state
-- Acts as a data container between modules
 
 ### api.py
 - Handles HTTP communication with the Bitaxe API
 - Fetches raw JSON statistics
-- Isolated from parsing and logging logic
 
 ### parser.py
 - Converts raw API responses into normalized metrics
-- Applies unit normalization and field consistency
-- Shields the rest of the code from API changes
 
 ### logger.py
-- Manages CSV file creation
-- Writes structured rows
-- Ensures consistent headers and timestamps
+- Manages CSV file creation and structured writes
 
 ### backtest.py
-- Loads existing CSV logs
-- Computes aggregates and trends
-- Used for offline analysis and comparison
+- Performs offline log analysis and comparisons
 
 ---
 
-## Conceptual Execution Flow
+## DISCLAIMER – READ CAREFULLY
 
-```text
-CLI args
-   ↓
-main.py
-   ↓
-control.py  → loop timing
-   ↓
-api.py      → raw stats
-   ↓
-parser.py  → normalized metrics
-   ↓
-logger.py  → CSV logs
+THIS SOFTWARE IS PROVIDED **AS IS**, WITHOUT ANY WARRANTY.
+
+- Overclocking, voltage changes, and cooling adjustments **CAN DAMAGE OR DESTROY YOUR HARDWARE**
+- This tool may encourage experimentation beyond manufacturer specifications
+- **YOU USE THIS SOFTWARE ENTIRELY AT YOUR OWN RISK**
+
+THE AUTHOR OF THIS PROJECT:
+- IS NOT RESPONSIBLE FOR HARDWARE DAMAGE
+- IS NOT RESPONSIBLE FOR DATA LOSS
+- IS NOT RESPONSIBLE FOR FIRE, ELECTRICAL, OR THERMAL DAMAGE
+- IS NOT RESPONSIBLE FOR ANY FINANCIAL LOSS
+
+IF THIS SCRIPT KILLS YOUR BITAXE, **THAT IS ON YOU**.
+
+---
+
+## Donations
+
+If this project helps you understand your miner, improve stability, or avoid costly mistakes, donations are appreciated.
+
+**Bitcoin (BTC) address:**
+
+```
+bc1q6p9nntpy9r97rds3qv5nar7kjmchwuc8xnzxqr
 ```
 
----
-
-## Interpreting Results
-
-### Good Configuration
-
-- Stable temperature
-- Flat fan behavior
-- Low and steady error percentage
-- Stable hashrate plateau
-
-### Bad Configuration
-
-- Slowly increasing temperature
-- Fan constantly ramping
-- Error percentage creeping upward
-- Hashrate oscillations
-
----
-
-## Common Mistakes
-
-- Judging performance on very short runs
-- Ignoring smoothed firmware metrics
-- Comparing logs from different ambient temperatures
-- Optimizing hashrate while ignoring error rate
-
----
-
-## Disclaimer
-
-- Overclocking reduces hardware lifespan
-- Voltage increases heat non-linearly
-- You are fully responsible for your hardware
-
-This tool exposes reality.  
-What you do with that information is your choice.
+Thank you for supporting open-source experimentation and data-driven mining.
 
 ---
 
