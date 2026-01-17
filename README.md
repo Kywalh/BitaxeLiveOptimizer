@@ -32,6 +32,7 @@ It provides facts so you can optimize intelligently.
 - Logs all relevant metrics to CSV files
 - Supports multiple Bitaxe miners simultaneously
 - Associates each miner with a human-readable name
+- Separates responsibilities across multiple Python modules
 - Produces structured logs suitable for offline backtesting
 - Makes firmware smoothing effects visible (error rate, averaged stats, etc.)
 
@@ -43,7 +44,7 @@ It provides facts so you can optimize intelligently.
 - Network access to one or more Bitaxe miners
 - No virtual environment required
 
-**Supported platforms**
+Supported platforms:
 - Windows
 - Linux
 - macOS
@@ -52,13 +53,21 @@ It provides facts so you can optimize intelligently.
 
 ## Repository Structure
 
-```text
+```
 BitaxeLiveOptimizer/
-├── main.py
+├── main.py              # Entry point, orchestration
+├── control.py           # Core control loop and miner coordination
+├── miner.py             # Miner representation (name, IP, state)
+├── api.py               # Bitaxe API communication layer
+├── parser.py            # Raw API data parsing and normalization
+├── logger.py            # CSV logging utilities
+├── backtest.py          # Offline log analysis (optional)
 ├── requirements.txt
 ├── logs/
 └── README.txt
 ```
+
+> File names may vary slightly, but the architecture follows this separation of concerns.
 
 ---
 
@@ -108,8 +117,6 @@ bitaxe_garage=192.168.1.50
 Defines a Bitaxe miner.  
 This option can be used multiple times.
 
-Example:
-
 ```text
 --miner bitaxe_garage=192.168.1.50
 --miner bitaxe_lab=192.168.1.51
@@ -126,7 +133,6 @@ Polling interval in seconds.
 ```
 
 Typical values:
-
 - `5`   → very granular, higher load
 - `10`  → recommended default
 - `30+` → long-term monitoring
@@ -142,7 +148,6 @@ Total logging duration in minutes.
 ```
 
 Notes:
-
 - ~6 minutes corresponds to one internal Bitaxe stats update window
 - 20–30 minutes recommended for thermal stability analysis
 
@@ -234,43 +239,61 @@ Optimization decisions should **never** be based on only a few minutes of data.
 
 ---
 
-## `main.py` Explained
+## Architecture Explained
 
-### High-Level Execution Flow
+### main.py
+- Parses command-line arguments
+- Initializes configuration
+- Starts and stops the monitoring session
+- Delegates all operational logic to other modules
 
-1. Parse command-line arguments
-2. Register all miners (name + IP)
-3. Initialize the CSV logger
-4. Start the polling loop
-5. Fetch stats from each miner
-6. Normalize and format metrics
-7. Append one CSV row per miner per cycle
-8. Stop cleanly when duration is reached
+### control.py
+- Implements the main polling loop
+- Coordinates all registered miners
+- Handles timing, intervals, and session duration
+
+### miner.py
+- Represents a single Bitaxe miner
+- Stores name, IP, and runtime state
+- Acts as a data container between modules
+
+### api.py
+- Handles HTTP communication with the Bitaxe API
+- Fetches raw JSON statistics
+- Isolated from parsing and logging logic
+
+### parser.py
+- Converts raw API responses into normalized metrics
+- Applies unit normalization and field consistency
+- Shields the rest of the code from API changes
+
+### logger.py
+- Manages CSV file creation
+- Writes structured rows
+- Ensures consistent headers and timestamps
+
+### backtest.py
+- Loads existing CSV logs
+- Computes aggregates and trends
+- Used for offline analysis and comparison
 
 ---
 
-### Conceptual Logic
+## Conceptual Execution Flow
 
 ```text
-start_time = now
-
-while now < start_time + duration:
-    for miner in miners:
-        fetch miner stats
-        parse metrics
-        write CSV row
-    sleep(interval)
+CLI args
+   ↓
+main.py
+   ↓
+control.py  → loop timing
+   ↓
+api.py      → raw stats
+   ↓
+parser.py  → normalized metrics
+   ↓
+logger.py  → CSV logs
 ```
-
----
-
-### Design Choices
-
-- Deterministic timing
-- No background threads
-- Simple control flow
-- Easy debugging
-- Fully reproducible logs
 
 ---
 
